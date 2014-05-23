@@ -3,3 +3,4 @@
 *.hi
 *.svg
 build/
+dist/
