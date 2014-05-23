@@ -4,3 +4,5 @@
 *.svg
 build/
 dist/
+*.swp
+*.swx
