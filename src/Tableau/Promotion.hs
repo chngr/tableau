@@ -1,6 +1,8 @@
 module Tableau.Promotion where
 
 import Tableau
+import Data.List
+import Data.Maybe
 
 -- | Compute the promotion of a given tableau
 promotion :: Tableau -> Tableau
