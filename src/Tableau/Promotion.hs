@@ -56,6 +56,27 @@ minOrbit m ws =
                            t''     = changeEntry t' b' $ fromJust (t .! b') + n
                         in mkLeft t''
 
+rectify :: Tableau -> Tableau
+rectify t = case findCorner t of
+             Nothing -> t
+             Just b  ->
+              let (t',b') = slideWith chooseSlide t b
+                  t''     = removeCorner t' b'
+              in rectify t''
+
+
+removeCorner :: Tableau -> Box -> Tableau
+removeCorner t (i,j) = let ri  = t !! i
+                           ri' = take j ri
+                        in foldr (\(r,k) acc -> if k == i then ri':acc else r:acc) [] (zip t [0..])
+
+rectify' :: Tableau -> Tableau
+rectify' t = case findCorner' t of
+               Nothing -> t
+               Just b  -> let (t',b') = slideWith chooseRSlide t b
+                              t''     = changeEntry t' b' (-1)
+                          in rectify' t''
+
 -- | Given a semistandard tableau, compute the standard tableau
 -- corresponding to the filling.
 standardize :: Tableau -> Tableau
@@ -100,5 +121,7 @@ findCorner t =
    in if null rs
         then Nothing
         else let (r,i) = last rs
-                 (_,j) = last $ takeWhile ((== 0) . fst) (zip r [0..])
-              in Just (i,j)
+              in if all (== 0) r
+                   then Nothing
+                   else let  (_,j) = last $ takeWhile ((== 0) . fst) (zip r [0..])
+                        in Just (i,j)
