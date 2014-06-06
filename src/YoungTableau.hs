@@ -6,6 +6,7 @@ import Diagrams.Backend.SVG.CmdLine
 
 import Tableau
 import Tableau.Promotion
+import Tableau.Staircase
 import Data.List (transpose,permutations)
 
 -- | Create Ferrer's Diagram from list of integers

@@ -14,7 +14,10 @@ promotionPath t = (0,0):(reverse $ snd $ promotion' (0,0) [] t)
 
 -- | Compute the orbit of promotion
 promotionOrbit :: Tableau -> [Tableau]
-promotionOrbit t = nub $ take (n * m)  $ iterate promotion t
+promotionOrbit t
+  | shape t == replicate n m  = nub $ take (n*m)            $ iterate promotion t
+  | shape t == [m,(m - 1)..1] = nub $ take (2*m*(m+1))      $ iterate promotion t
+  | otherwise                 = nub $ take (product [1..n]) $ iterate promotion t
   where n = length t
         m = length (t !! 0)
 
@@ -63,7 +66,6 @@ rectify t = case findCorner t of
               let (t',b') = slideWith chooseSlide t b
                   t''     = removeCorner t' b'
               in rectify t''
-
 
 removeCorner :: Tableau -> Box -> Tableau
 removeCorner t (i,j) = let ri  = t !! i

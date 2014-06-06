@@ -76,3 +76,10 @@ changeEntry t (i,j) n = map (\(r,ix) -> if ix == i
 -- | Extract subtableau with entries at least lo and entries at most hi
 subtableau :: (Int,Int) -> Tableau -> Tableau
 subtableau (lo, hi) = map (map (\e -> if e < lo then -1 else e) . filter (<= hi))
+
+descents :: Tableau -> [Bool]
+descents t = descents' $ map (\k -> (snd . fromJust) (t !? k)) [1..(size t)]
+    where descents' :: [Int] -> [Bool]
+          descents' []               = []
+          descents' [_]              = [False]
+          descents' (j:k:xs) = (k <= j):descents' (k:xs)
