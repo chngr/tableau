@@ -2,37 +2,30 @@ module Tableau where
 
 import Data.List
 import Data.Maybe (fromJust)
+import Data.Map (Map)
+import qualified Data.Map as M
 
 type Box = (Int,Int)
-type Tableau = [[Int]]
+type Diagram = [Int]
+type Filling = Map Box Int
+data Tableau = SemiStandard { shape :: Diagram, filling :: Filling }
+             | Skew { shape :: (Diagram, Diagram), filling :: Filling }
+             | Shifted { shape :: Diagram, filling :: Filling }
 
 -- | Compute the size of a tableau
 size :: Tableau -> Int
 size = sum . shape
 
--- | Compute the shape of a tableau
-shape :: Tableau -> [Int]
-shape = map length
-
--- | Compute the index of the smallest box containing a given number.
-(!?) :: Tableau -> Int -> Maybe Box
-t !? n = case findIndices (elem n) t of
-           [] -> Nothing
-           rs -> let bs = map (\i -> let Just j = elemIndex n (t !! i) in (i,j)) rs
-                     b  = minimumBy (\a a' -> compare (snd a) (snd a')) bs
-                  in Just b
-
-(.!) :: Tableau -> Box -> Maybe Int
-t .! (i,j) = if 0 <= i && i < length t
-             && 0 <= j && j < length (t !! i)
-               then Just ((t !! i) !! j)
-               else Nothing
+-- | Given a box `b' and tableau `t', return the entry contained in box
+-- `b'; if `b' is not in the diagram, then `Nothing' is returned.
+(.!) :: Box -> Tableau -> Maybe Int
+b .! t = M.lookup b $ filling b
 
 -- | Given box (i,j) in tableau, compute the next position to slide to
 -- based on the given comparison function.
 chooseSlideWith :: (Int -> Int -> Ordering) -> Tableau -> Box -> Maybe Box
 chooseSlideWith f t (i,j) =
-    case (t .! (i,j+1), t .! (i+1,j)) of
+    case ((i,j+1) .! t, (i+1,j) .! t) of
       (Nothing, Nothing) -> Nothing         -- Corner
       (Nothing, Just _)  -> Just (i+1,j)    -- None to right
       (Just _,  Nothing) -> Just (i,j+1)    -- None below
@@ -46,7 +39,7 @@ chooseSlide = chooseSlideWith compare
 -- to based on the given comparision function.
 chooseRSlideWith :: (Int -> Int -> Ordering) -> Tableau -> Box -> Maybe Box
 chooseRSlideWith f t (i,j) =
-    case (t .! (i,j-1), t .! (i-1,j)) of
+    case ((i,j-1) .! t, (i-1,j) .! t) of
       (Nothing, Nothing) -> Nothing         -- Corner
       (Nothing, Just _)  -> Just (i-1,j)    -- None left
       (Just _, Nothing)  -> Just (i,j-1)    -- None above
@@ -58,28 +51,24 @@ chooseRSlide = chooseRSlideWith compare
 
 -- | Swap the entry in (i,j) with the entry in (k,l)
 swap :: Tableau -> Box -> Box -> Tableau
-swap t (i,j) (k,l) = t''
-  where t'  = changeEntry t  (i,j) $ fromJust (t .! (k,l))
-        t'' = changeEntry t' (k,l) $ fromJust (t .! (i,j))
-
--- | Change the entry at position i to n
-changeRowEntry :: [Int] -> Int -> Int -> [Int]
-changeRowEntry r i n =
-    foldr (\(e,ix) acc -> if i == ix then n:acc else e:acc) [] (zip r [0..])
+swap t a b =
+    case (a .! t, b .! t) of
+      (Just n, Just m) -> let f  = filling t
+                             f' = M.adjust (const n) b $ M.adjust (const m) a f
+                          in t { filling = f' }
+      (_,_)            -> t
 
 -- | Change the entry at (i,j) to n
 changeEntry :: Tableau ->  Box -> Int -> Tableau
-changeEntry t (i,j) n = map (\(r,ix) -> if ix == i
-                                          then changeRowEntry r j n
-                                          else r) (zip t [0..])
+changeEntry t b n = t { filling = M.adjust (const n) b (filling t) }
 
 -- | Extract subtableau with entries at least lo and entries at most hi
 subtableau :: (Int,Int) -> Tableau -> Tableau
-subtableau (lo, hi) = map (map (\e -> if e < lo then -1 else e) . filter (<= hi))
+subtableau (lo, hi) t =
+    t { filling = (M.filter (>= lo) . M.filter (<= hi) . filling) t }
 
-descents :: Tableau -> [Bool]
-descents t = descents' $ map (\k -> (snd . fromJust) (t !? k)) [1..(size t)]
-    where descents' :: [Int] -> [Bool]
-          descents' []               = []
-          descents' [_]              = [False]
-          descents' (j:k:xs) = (k <= j):descents' (k:xs)
+-- | Compute the entries which are descents
+descents :: Tableau -> [Int]
+descents t = M.filterWithKey f t
+  where f (_,j) n = not . M.null
+                  $ M.filterWithKey (\(_,l) m -> m == n + 1 && l <= j)))
