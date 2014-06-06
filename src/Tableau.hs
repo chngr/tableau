@@ -1,7 +1,6 @@
 module Tableau where
 
 import Data.List
-import Data.Maybe (fromJust)
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -11,10 +10,41 @@ type Filling = Map Box Int
 data Tableau = SemiStandard { shape :: Diagram, filling :: Filling }
              | Skew { shape :: (Diagram, Diagram), filling :: Filling }
              | Shifted { shape :: Diagram, filling :: Filling }
+             deriving (Show, Eq)
 
--- | Compute the size of a tableau
+-- | Compute the size of a tableau.
 size :: Tableau -> Int
+size (Skew { shape = (lambda,mu) }) = (sum lambda) - (sum mu)
 size = sum . shape
+
+-- | Compute the number of rows of a tableau.
+nrows :: Tableau -> Int
+nrows (Skew { shape = (lambda,_) }) = length lambda
+nrows = length . shape
+
+-- | Compute the number of columns of a tableau---the length of first part.
+ncols :: Tableau -> Int
+ncols (Skew { shape = (lambda,mu) }) = (head lambda) - (head mu)
+ncols = length . head . shape
+
+-- | Compute the transpose of a Young Diagram
+transposeDiagram :: Diagram -> Diagram
+transposeDiagram sh = takeWhile (/= 0)
+                    $ map (\n -> length $ filter (>= n) sh) [1..]
+
+-- | Compute the transpose of a Filling
+transposeFilling :: Filling -> Filling
+transposeFilling f = M.fromList $ map (\((i,j),n) -> ((j,i),n)) $ M.toList f
+
+-- | Compute the transpose of a Young tableau
+transpose :: Tableau -> Tableau
+transpose (Skew { shape = (lambda,mu), filling = f}) =
+    Skew { shape   = (transposeDiagram lambda, transposeDiagram mu')
+         , filling = transposeFilling f }
+transpose (Semistandard { shape = lambda, filling = f }) =
+    SemiStandard { shape   = transposeDiagram lambda
+                 , filling = transposeFilling f }
+transpose t = t
 
 -- | Given a box `b' and tableau `t', return the entry contained in box
 -- `b'; if `b' is not in the diagram, then `Nothing' is returned.
@@ -72,3 +102,13 @@ descents :: Tableau -> [Int]
 descents t = M.filterWithKey f t
   where f (_,j) n = not . M.null
                   $ M.filterWithKey (\(_,l) m -> m == n + 1 && l <= j)))
+
+-- | Map a given function over all the entries of the given tableau.
+mapTableau :: (Box -> Int -> Int) -> Tableau -> Tableau
+mapTableau f t = t { filling = mapWithKey f (filling t) }
+
+-- | Return the position of an inner corner of a tableau.
+innerCorner :: Tableau -> Maybe Box
+innerCorner (Skew t)         = let (_,mu) = shape t in (length mu, last mu)
+innerCorner (SemiStandard t) = Nothing
+innerCorner (Shifted t)      = Nothing
